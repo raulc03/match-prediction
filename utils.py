@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Dictionary that maps results to their inverses
-inv = {'W': 'L', 'L': 'W', 'D': 'D'}
+inv = {'M': 'M', 'W': 'L', 'L': 'W', 'D': 'D'}
 
 
 # Función que lee el dataset y retorna un dataframe
