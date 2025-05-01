@@ -2,12 +2,13 @@ import pandas as pd
 from pathlib import Path
 import re
 
+
 def data_cleaning(df: pd.DataFrame, team: str):
     # Eliminamos columnas innecesarias
     df.drop(['Unnamed: 0', 'Match Report', 'Notes'], inplace=True, axis=1)
 
     # Agregamos el equipo al que el dataset hace referencia
-    df['Team'] =  team
+    df['Team'] = team
 
     # Parsear la fecha
     fecha_hora = df['Date'] + ' ' + df['Time']
@@ -26,6 +27,7 @@ def data_cleaning(df: pd.DataFrame, team: str):
     df.drop(drop_columns, axis=1, inplace=True)
 
     return df
+
 
 if __name__ == '__main__':
     data_dir = './data/'
@@ -46,7 +48,7 @@ if __name__ == '__main__':
             team = match.group(1)
             df = data_cleaning(pd.read_csv(file), team)
             if type(df_final) == pd.DataFrame:
-                cnt +=1
+                cnt += 1
                 df_final = pd.concat([df_final, df], ignore_index=True)
             else:
                 print('Test')
@@ -56,6 +58,7 @@ if __name__ == '__main__':
             break
 
     if type(df_final) == pd.DataFrame:
-        df_final.to_csv(data_dir + 'dataset/2020-2024 Matches Liga 1 Teams.csv')
+        df_final.to_csv(
+            data_dir + 'dataset/2020-2024 Matches Liga 1 Teams.csv')
 
     print(cnt)
