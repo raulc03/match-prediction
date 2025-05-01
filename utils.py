@@ -23,5 +23,5 @@ def read_data(path: str) -> pd.DataFrame:
         DataFrame containing the data from the CSV file with 'DateFrame'
         column converted to datetime objects
     """
-    df = pd.read_csv(path, parse_dates=['DateTime'])
+    df = pd.read_csv(path)
     return df

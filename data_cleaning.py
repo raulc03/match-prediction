@@ -32,6 +32,7 @@ class DataCleaning:
             The DataFrame containing raw match data
         """
         self.df: pd.DataFrame = df.copy()
+        print(self.df.shape)
 
     def clean_data(self) -> pd.DataFrame:
         """
@@ -45,13 +46,41 @@ class DataCleaning:
         pd.DataFrame
             The cleaned and processed DataFrame
         """
+        self.__get_datetime()
         self.__fix_teams_names()
+        self.__fix_comp_names()
         self.__get_matches()
         self.__fix_gf_ga_format()
         self.__fix_rounds()
         self.__drop_columns()
 
         return self.df
+
+    def __fix_comp_names(self) -> None:
+        df: pd.DataFrame = self.df.copy()
+
+        df['Comp'] = df['Comp'].replace({'Descentralizado': 'Liga 1'})
+        df: pd.DataFrame = df[df['Comp'] == 'Liga 1'] # type:ignore
+
+        self.df = df
+
+    def __get_datetime(self) -> None:
+        df: pd.DataFrame = self.df.copy()
+
+        df_time_null = df[(df['Time'].isnull()) & (df['Venue'] != 'Neutral')]
+        df_time_null.iloc[[0, 2], 1] = '15:45'
+        df_time_null.iloc[[1, 3], 1] = '20:00'
+
+        df.loc[df_time_null.index] = df_time_null
+
+        datetime = df['Date'] + ' ' + df['Time']
+        df['DateTime'] = pd.to_datetime(datetime, format='%Y-%m-%d %H:%M')
+
+        df['Day'] = df['DateTime'].dt.dayofweek
+
+        df.drop(['Date', 'Time'], axis=1, inplace=True)
+
+        self.df = df
 
     def __drop_columns(self) -> None:
         """
@@ -63,9 +92,10 @@ class DataCleaning:
         df: pd.DataFrame = self.df.copy()
 
         # List of columns that don't contribute to the analysis
-        useless_cols = ['Unnamed: 0', 'Comp', 'Venue', 'Team', 'Opponent',
-                        'Date', 'Time', 'Captain', 'Formation',
-                        'Opp Formation', 'Referee', 'Day']
+        useless_cols = ['Comp', 'Opponent', 'Team', 'Poss',
+                'Attendance', 'Captain', 'Formation',
+                'Opp Formation', 'Referee', 'Match Report', 'Notes']
+
         df.drop(useless_cols, axis=1, inplace=True)
 
         self.df = df
@@ -115,11 +145,31 @@ class DataCleaning:
         df: pd.DataFrame = self.df.copy()
 
         # Dictionary mapping inconsistent team names to standardized names
-        replace = {'Alianza Univ': 'Alianza Universidad',
-                   'Universidad Técnica de Cajamarca': 'UTC'}
+        replace = {'Alianza Atletico': 'Alianza Atlético',
+                   'Alianza Univ': 'Alianza Universidad',
+                   'Atletico Grau': 'Atlético Grau',
+                   'Mannucci': 'Carlos A Mannucci',
+                   'La Bocana': 'Defensor La Bocana',
+                   'Dep Municipal': 'Deportivo Municipal',
+                   'Leon de Huanuco': 'León Huánuco',
+                   'San Simon': 'San Simón',
+                   'U César Vallejo': 'Universidad César Vallejo',
+                   'Universidad Cesar Vallejo': 'Universidad César Vallejo',
+                   'Union Comercio':'Unión Comercio',
+                   'USMP': 'Universidad San Martin',
+                   'UTC':'Universidad Técnica de Cajamarca',
+                   'Universidad Tecnica de Cajamarca': 'Universidad Técnica de Cajamarca',
+                   'Comerciantes': 'Comerciantes Unidos'}
 
         df['Team'] = df['Team'].replace(replace)
         df['Opponent'] = df['Opponent'].replace(replace)
+
+        opp = set(df['Opponent'].unique().tolist())
+        tm = set(df['Team'].unique().tolist())
+
+        if len(tm - opp) != 0:
+            print('Inconsistency in team neames found:\n',
+                  tm - opp)
 
         self.df = df
 
@@ -132,7 +182,15 @@ class DataCleaning:
         """
         df: pd.DataFrame = self.df.copy()
 
-        df['Round'] = df['Round'].replace({'Finals': 'Final'})
+        regular_season = ['Torneo Apertura', 'Torneo Clausura',
+                          'Liguillas', 'Torneo de Verano Regular Season',
+                          'Group Stage']
+        df['Round'] = df['Round'].replace(to_replace=regular_season, value='Regular Season')
+
+        finals = ['Championship play-off', 'Clausura play-off',
+                  'Relegation play-off', 'Semi-finals', 'Finals',
+                  'Third-place play-off', 'Torneo de Verano Finals', 'Final']
+        df['Round'] = df['Round'].replace(to_replace=finals, value='Finals')
 
         self.df = df
 
@@ -141,14 +199,15 @@ class DataCleaning:
         Structure the data to have consistent home and away team format.
 
         This method:
-        1. Filters for Liga 1 matches only
-        2. Ensures each match has proper home/away team designation
-        3. Adjusts goals and results accordingly
-        4. Removes duplciates and sorts by date
+        1. Ensures each match has proper home/away team designation
+        2. Adjusts goals and results accordingly
+        3. Removes duplciates and sorts by date
         """
         df: pd.DataFrame = self.df.copy()
 
-        df = df[df['Comp'] == 'Liga 1']  # type: ignore
+        # Drop the matches with Neutral venue
+        df = (df.drop(df[df['Venue'] == 'Neutral'].index) # type:ignore
+              .reset_index(drop=True))
 
         def parse_matches(row) -> pd.Series:
             """

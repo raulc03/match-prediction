@@ -186,7 +186,7 @@ def classify_feature_selector(df: pd.DataFrame, num_discrete: list,
     mi_score = partial(mutual_info_classif, random_state=rs)
 
     # Create feature selector to select the top 5 most informative features
-    feature_selector = SelectKBest(mi_score, k=5)
+    feature_selector = SelectKBest(mi_score, k=7)
 
     # Create initial pipeline for preprocessing and feature selection
     pipe = Pipeline([

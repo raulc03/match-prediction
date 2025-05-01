@@ -26,13 +26,15 @@ def main():
     - Categorical features (like round names)
     """
     # Path to the dataset containing Liga 1 match data
-    path = 'data/dataset/2020-2024 Matches Liga 1 Teams.csv'
+    path = 'data/Liga_1_Matches_2014-2024.csv'
 
     # Load the raw data from CSV file
     df = read_data(path)
 
     # Clean the data to handle missing values, etc
     df = DataCleaning(df).clean_data()
+
+    print(df.shape)
 
     # Initiliaze feature engineering object with cleaned dataframe
     fe = FeatureEngineering(df)
@@ -46,7 +48,7 @@ def main():
     # HTGD = Home Team Goal Difference, ATGD = Away Team Goal Difference
     # MW = Match Week
     num_discrete = ['HTGS', 'ATGS', 'HTGC',
-                    'ATGC', 'HTGD', 'ATGD', 'MW']
+                    'ATGC', 'HTGD', 'ATGD', 'MW', 'Day']
 
     # Form-based features that track team performance over recent matches
     num_continuos = ['HTGSForm', 'ATGSForm', 'HTGCForm', 'ATGCForm']

@@ -1,8 +1,11 @@
-from bs4 import BeautifulSoup
-import requests
-import pandas as pd
 import time
 import random
+import pandas as pd
+from bs4 import BeautifulSoup
+import requests
+import requests_cache
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from datetime import datetime
 
 user_agents = [
@@ -18,15 +21,54 @@ user_agents = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.5790.170 Safari/537.36 Edg/115.0.5790.170",
 ]
 
-base_url = 'https://fbref.com'
+BASE_URL = 'https://fbref.com'
 
 url_teams = []
+
+def configure_session(
+    cache_name: str = "fbref_cache",
+    cache_expire: int = 3600
+) -> requests.Session:
+    # 1) Cache local
+    requests_cache.install_cache(cache_name, expire_after=cache_expire)
+
+    # 2) Sesión y cabeceras "browser-like"
+    session = requests.Session()
+    session.headers.update({
+        "Accept-Language": "es-ES,es;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
+        "Referer": BASE_URL + "/en",
+        "Origin": BASE_URL,
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-User": "?1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Ch-Ua": '"Chromium";v="120", "Google Chrome";v="120"',
+        "Sec-Ch-Ua-Mobile": "?0",
+    })
+
+    # 3) Retries con backoff exponencial
+    retries = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS"],
+        raise_on_status=False
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
+    return session
+
 
 def get_urls(urls: pd.DataFrame, years: list) -> pd.DataFrame:
     df = urls.copy()
     for year in years:
         # Liga 1 URL for each year
-        url = f'{base_url}/en/comps/44/{year}/{year}-Liga-1-Stats'
+        url = f'{BASE_URL}/en/comps/44/{year}/{year}-Liga-1-Stats'
 
         # Rotating headers to avoid block
         headers = {
@@ -42,7 +84,7 @@ def get_urls(urls: pd.DataFrame, years: list) -> pd.DataFrame:
             # always has the list of teams with their URLs
             table = soup.find('table')
             for row in table.find('tbody').find_all('tr'): # type:ignore
-                url = base_url + row.find('a').get('href') # type:ignore
+                url = BASE_URL + row.find('a').get('href') # type:ignore
                 df.loc[len(df)] = [year, url]
         else:
             print(f'Failed to retrieve {url}')
@@ -81,38 +123,51 @@ def validate_years(path: str, years: list):
         # Create the file with all the URLs
         urls_df.to_csv(path, index=False)
 
-def get_stats(df: pd.DataFrame, path: str) -> None:
+def get_stats(
+    session: requests.Session,
+    df: pd.DataFrame,
+    path: str
+) -> None:
     url_df = pd.read_csv(path)
+    total = url_df.shape[0]
+    print(f"Retrieving {total} URLs...")
 
-    print(f'Retrieving {url_df.shape[0]} URLs...')
+    for idx, url in enumerate(url_df['url'], start=1):
+        session.headers['User-Agent'] = random.choice(user_agents)
 
-    for url in url_df.loc[:, 'url']:
-        headers = {
-            'User-Agent': random.choice(user_agents),
-        }
+        resp = session.get(url)
+        status = resp.status_code
 
-        res = requests.get(url, headers=headers)
+        if status == 200:
+            soup = BeautifulSoup(resp.content, 'html.parser')
+            team_slug = url.rstrip('/').split('/')[-1].split('Stats')[0]
+            team = team_slug.replace('-', ' ').strip()
 
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.content, 'html.parser')
+            table = soup.find(id='matchlogs_for')
+            if table and table.tbody: # type:ignore
+                for row in table.tbody.find_all('tr'): # type:ignore
+                    date = row.find('th').get_text(strip=True) # type:ignore
+                    data = [d.get_text(strip=True) for d in row.find_all('td')] # type:ignore
+                    row_data = [date] + data + [team]
 
-            team_from_url = url.split('/')[-1].split('Stats')[0]
-            team = team_from_url.replace('-', ' ')
+                    if row_data[0] != '':
+                        if len(row_data) != len(df.columns):
+                            print("Column mismatch:", url, len(row_data), len(df.columns))
+                            # Ignore the xG and xGA columns.
+                            del row_data[10:12]
+                        df.loc[len(df)] = row_data
 
-            for row in soup.find(id='matchlogs_for').find('tbody').find_all('tr'): # type:ignore
-                date = [row.find('th').text.strip()] # type:ignore
-                data = [d.text.strip() for d in row.find_all('td')] # type:ignore
-
-                # Set new row
-                table_data = date + data + [team]
-
-                if table_data[0] != '':
-                    df.loc[len(df)] = table_data
+        elif status == 429:
+            retry_after = int(resp.headers.get('Retry-After', 60))
+            print(f"[{idx}/{total}] 429 on {url}, retry after {retry_after}s")
+            time.sleep(retry_after + 1)
+            continue
         else:
-            print('Error with the URL:', url, res.status_code)
+            print(f"[{idx}/{total}] Error {status} on {url}")
 
-        sp = random.randint(4, 6)
-        time.sleep(sp)
+        # 4) Delay
+        delay = max(6, random.gauss(8, 1.5))
+        time.sleep(delay)
 
 def main():
     initial_year: int = 2014
@@ -128,18 +183,18 @@ def main():
             'Venue', 'Result', 'GF', 'GA', 'Opponent',
             'Poss', 'Attendance', 'Captain', 'Formation',
             'Opp Formation', 'Referee', 'Match Report', 'Notes', 'Team']
-    df = pd.DataFrame(columns=cols) # type:ignore
+    df_stats = pd.DataFrame(columns=cols) # type:ignore
 
-    get_stats(df, urls_path)
+    sess = configure_session()
+
+    get_stats(sess, df_stats, urls_path)
 
     # NOTE: Static route
     final_path = f'data/Liga_1_Matches_{initial_year}-{last_year - 1}.csv'
 
     print(f'Saving file with statistics in:', final_path)
-    df.to_csv(final_path, index=False)
+    df_stats.to_csv(final_path, index=False)
 
 
-# TODO: Obtener el año inicial por argumento
-# TODO: Obtener el directorio de la data/ por argumento
 if __name__ == '__main__':
     main()
