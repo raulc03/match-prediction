@@ -2,9 +2,11 @@ from data_cleaning import DataCleaning
 from feature_engineer import FeatureEngineering
 from classify import classify, classify_feature_selector
 from utils import read_data
+from web_scrapping import scrape
+import argparse
 
 
-def main():
+def train():
     """
     Execute the complete match prediction workflow for Liga 1 teams.
 
@@ -87,6 +89,31 @@ def main():
     print('\nFeature Selection:')
     classify_feature_selector(df, num_discrete, num_continuos, cat_cols)
 
+def main():
+    parser = argparse.ArgumentParser(description="Data scraping and model training CLI tool")
+
+    parser.add_argument(
+        '--scrape',
+        action='store_true',
+        help='Extracts data from fbref.com for teams from 2014 to 2024'
+    )
+    
+    parser.add_argument(
+        '--train',
+        action='store_true',
+        help='Cleans, prepares, and generates features from the data to train and evaluate models'
+    )
+
+    args = parser.parse_args()
+
+    if args.scrape:
+        scrape()
+
+    if args.train:
+        train()
+
+    if not args.scrape and not args.train:
+        parser.print_help()
 
 if __name__ == '__main__':
     main()

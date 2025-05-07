@@ -109,7 +109,7 @@ def validate_years(path: str, years: list):
             print(f'All URLs in the range {years[0]} - {years[-1]} have been written in: {path}')
 
     except (FileNotFoundError, pd.errors.EmptyDataError):
-        print('Error with the file of URLs')
+        print('Does not exist URLs')
 
         # Gets all URLs in the year range
         urls_df = get_urls(urls_df, years)
@@ -163,7 +163,7 @@ def get_stats(
         delay = max(6, random.gauss(8, 1.5))
         time.sleep(delay)
 
-def main():
+def scrape():
     initial_year: int = 2014
     last_year: int = datetime.now().year
 
@@ -189,6 +189,3 @@ def main():
     print(f'Saving file with statistics in:', final_path)
     df_stats.to_csv(final_path, index=False)
 
-
-if __name__ == '__main__':
-    main()
