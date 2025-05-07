@@ -65,7 +65,9 @@ def main():
 
     # Add new features to each category
     # HTP = Home Team Points, ATP = Home Team Points, PD = Points Difference
-    num_discrete += ['HTP', 'ATP', 'PD', 'HTGS', 'ATGS', 'HTGC', 'ATGC']
+    # HTUS = Home Team Unbeaten Streaks, ATUS = Away Team Unbeaten Streaks
+    # HTLS = Home Team Losing Streaks, ATLS = Away Team Losing Streaks
+    num_discrete += ['HTP', 'ATP', 'PD', 'HTUS', 'ATUS', 'HTLS', 'ATLS']
 
     # Add form-based features for poitns
     num_continuos += ['HTPForm', 'ATPForm', 'PDForm']

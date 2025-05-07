@@ -23,16 +23,12 @@ user_agents = [
 
 BASE_URL = 'https://fbref.com'
 
-url_teams = []
-
 def configure_session(
     cache_name: str = "fbref_cache",
     cache_expire: int = 3600
 ) -> requests.Session:
-    # 1) Cache local
     requests_cache.install_cache(cache_name, expire_after=cache_expire)
 
-    # 2) Sesión y cabeceras "browser-like"
     session = requests.Session()
     session.headers.update({
         "Accept-Language": "es-ES,es;q=0.9",
@@ -49,7 +45,6 @@ def configure_session(
         "Sec-Ch-Ua-Mobile": "?0",
     })
 
-    # 3) Retries con backoff exponencial
     retries = Retry(
         total=5,
         backoff_factor=1,
@@ -165,7 +160,6 @@ def get_stats(
         else:
             print(f"[{idx}/{total}] Error {status} on {url}")
 
-        # 4) Delay
         delay = max(6, random.gauss(8, 1.5))
         time.sleep(delay)
 
@@ -176,7 +170,7 @@ def main():
     years = [year for year in range(initial_year, last_year)]
 
     # NOTE: Static route
-    urls_path = 'data/url_teams.csv'
+    urls_path = 'web_scrapping/url_teams.csv'
     validate_years(urls_path, years)
 
     cols = ['Date', 'Time', 'Comp', 'Round', 'Day',
