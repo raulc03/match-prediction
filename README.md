@@ -119,7 +119,7 @@ Sigue estos pasos para ejecutar el proyecto en tu máquina local (Linux):
 **Raúl Casanova**
 
 * ✉️ Email: [raul.casanova.03@gmail.com](mailto:raul.casanova.03@gmail.com)
-* 🔗 LinkedIn: [raúl-casanova](https://www.linkedin.com/in/ra%C3%BAl-casanova-227567171/)
+* 🔗 LinkedIn: [raul-casanova](https://www.linkedin.com/in/raul03-casanova28/)
 * 📊 Kaggle: [ralcasanova](https://www.kaggle.com/ralcasanova)
 
 > Si estás interesado en brindar oportunidades laborales relacionadas con ciencia de datos, no dudes en escribirme. Estaré encantado de conversar.
